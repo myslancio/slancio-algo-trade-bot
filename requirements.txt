@@ -1,0 +1,11 @@
+Django>=4.2,<5.0
+python-telegram-bot[job-queue]>=20.0
+django-environ
+Pillow
+yfinance
+pandas
+numpy
+matplotlib
+gunicorn
+whitenoise
+requests
