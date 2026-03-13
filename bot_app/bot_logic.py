@@ -261,7 +261,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e: await broadcast_error(context.bot, traceback.format_exc())
 
-def run_bot():
+def get_application():
     app = ApplicationBuilder().token(settings.TELEGRAM_BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("subscribe", subscribe))
@@ -272,4 +272,8 @@ def run_bot():
     app.add_handler(CommandHandler("admin", admin_console))
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.add_handler(MessageHandler(filters.PHOTO | filters.TEXT & (~filters.COMMAND), handle_message))
-    print("Slancio Executive Bot starting..."); app.run_polling()
+    return app
+
+def run_bot():
+    app = get_application()
+    print("Slancio Executive Bot starting (Polling)..."); app.run_polling()
