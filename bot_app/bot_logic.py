@@ -12,7 +12,7 @@ from datetime import timedelta
 from django.db.models import Avg
 
 # Welcome Banner Path (for local reference, but bot uses actual file)
-WELCOME_BANNER = "C:\\Users\\Kelione\\.gemini\\antigravity\brain\\216f53a3-31dc-4972-986f-6c4badef7b50\\slancio_welcome_banner_1773422275147.png"
+WELCOME_BANNER = os.path.join(settings.BASE_DIR, "assets", "welcome_banner.png")
 
 def is_admin(user_id):
     admin_ids = getattr(settings, 'ADMIN_TELEGRAM_IDS', [])
