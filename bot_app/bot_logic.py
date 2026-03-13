@@ -3,6 +3,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, Callb
 from django.conf import settings
 from subscriptions.models import Profile, SubscriptionPlan, Transaction, SupportTicket, SecurityLog, HealthMonitor, Feedback, GlobalConfig
 from alerts.models import TradeAlert
+from core.ui import format_premium_card, escape_md, GOLD_SHIELD, BLUE_DIAMOND, SEPARATOR
 import os
 import traceback
 from django.core.files.base import ContentFile
@@ -10,11 +11,8 @@ from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Avg
 
-# --- EXECUTIVE UI HELPERS ---
-def format_card(title, content):
-    """Generates a professional terminal-style card."""
-    border = "────────────────────────────────"
-    return f"🛡️ *{title}*\n{border}\n{content}\n{border}\n🌟 *Slancio Algo Trader*"
+# Welcome Banner Path (for local reference, but bot uses actual file)
+WELCOME_BANNER = "C:\\Users\\Kelione\\.gemini\\antigravity\brain\\216f53a3-31dc-4972-986f-6c4badef7b50\\slancio_welcome_banner_1773422275147.png"
 
 def is_admin(user_id):
     admin_ids = getattr(settings, 'ADMIN_TELEGRAM_IDS', [])
@@ -28,9 +26,9 @@ async def update_heartbeat():
 
 async def broadcast_error(bot, error_msg, user=None):
     admin_ids = getattr(settings, 'ADMIN_TELEGRAM_IDS', [])
-    report = format_card("SYSTEM ALERT", f"🚨 *CRITICAL ERROR:*\n\n{error_msg}")
+    report = format_premium_card("SYSTEM ALERT", f"🚨 *CRITICAL ERROR:*\n\n{escape_md(error_msg)}")
     for aid in admin_ids:
-        try: await bot.send_message(chat_id=aid, text=report, parse_mode='Markdown')
+        try: await bot.send_message(chat_id=aid, text=report, parse_mode='MarkdownV2')
         except: pass
 
 # --- USER HANDLERS ---
@@ -54,93 +52,100 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     profile.trial_expiry = timezone.now() + timedelta(days=3)
                     profile.subscription_end_date = profile.trial_expiry
                     profile.save()
-                    await update.message.reply_text(format_card("WELCOME GIFT", "🎁 You've received a *3-Day Premium Trial* via referral!"), parse_mode='Markdown')
+                    msg = escape_md("🎁 You've received a 3-Day Premium Trial via referral!")
+                    await update.message.reply_text(format_premium_card("WELCOME GIFT", f"*{msg}*"), parse_mode='MarkdownV2')
             except: pass
 
         content = (
-            "🏦 *Trading Console Active*\n\n"
-            "1. /subscribe - Manage Membership\n"
-            "2. /pnl - View Performance\n"
-            "3. /support - Tech Assistance\n"
-            "4. /invite - Get Free Trial for Friends\n"
-            "5. /feedback - Share your experience\n"
+            f"{BLUE_DIAMOND} *Terminal:* `Active`\n"
+            f"{BLUE_DIAMOND} *Security:* `Encrypted`\n\n"
+            "Welcome to the **Slancio Executive Terminal**. Use the menu below or the navigation buttons to control your trading desk.\n\n"
+            "1️⃣ /subscribe \\- Get Premium Signals\n"
+            "2️⃣ /pnl \\- Performance Analytics\n"
+            "3️⃣ /invite \\- Earn Rewards\n"
+            "4️⃣ /support \\- Tech Assistance"
         )
-        if is_admin(user.id): content += "\n🛡️ /admin - Mobile Terminal"
+        if is_admin(user.id): content += f"\n\n{GOLD_SHIELD} /admin \\- Mobile Terminal"
         
-        await update.message.reply_text(format_card("SLANCIO ALGOS", content), parse_mode='Markdown', protect_content=True)
+        # Send Welcome Banner if exists
+        try:
+            with open(WELCOME_BANNER, "rb") as photo:
+                await update.message.reply_photo(photo=photo, caption=format_premium_card("EXECUTIVE ACCESS", content), parse_mode='MarkdownV2', protect_content=True)
+        except:
+            await update.message.reply_text(format_premium_card("EXECUTIVE ACCESS", content), parse_mode='MarkdownV2', protect_content=True)
+            
     except Exception as e:
         await broadcast_error(context.bot, traceback.format_exc(), update.effective_user)
 
 async def pnl_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Executive Performance Dashboard."""
     try:
         await update_heartbeat()
         signals = TradeAlert.objects.order_by('-sent_at')[:10]
         avg_acc = TradeAlert.objects.aggregate(Avg('accuracy'))['accuracy__avg'] or 0
         
-        table = "```\nDATE       INST    SIDE   ACC\n"
+        table = "```\n"
+        table += f"{escape_md('DATE       INST    SIDE   ACC')}\n"
+        table += f"{escape_md(SEPARATOR[:25])}\n"
         for s in signals:
             date_str = s.sent_at.strftime('%d/%m') if s.sent_at else "N/A"
-            table += f"{date_str:<10} {s.instrument[:5]:<7} {s.side[:4]:<6} {s.accuracy}\n"
+            line = f"{date_str:<10} {s.instrument[:5]:<7} {s.side[:4]:<6} {s.accuracy}"
+            table += f"{escape_md(line)}\n"
         table += "```"
         
         content = (
-            f"📈 *TOTAL ACCURACY:* {avg_acc:.1f}%\n"
-            f"📊 *LAST 10 SIGNALS:*\n{table}"
+            f"📈 *TOTAL ACCURACY:* `{avg_acc:.1f}%`\n\n"
+            f"📊 *RECENT SIGNALS:*\n{table}"
         )
-        await update.message.reply_text(format_card("PERFORMANCE HUB", content), parse_mode='Markdown', protect_content=True)
+        await update.message.reply_text(format_premium_card("PERFORMANCE ANALYTICS", content), parse_mode='MarkdownV2', protect_content=True)
     except Exception as e:
         await broadcast_error(context.bot, traceback.format_exc())
 
 async def invite(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Generates a deep-link invite for friends."""
     user = update.effective_user
     bot_username = (await context.bot.get_me()).username
     invite_link = f"https://t.me/{bot_username}?start={user.id}"
     
     content = (
-        "🎁 *SHARE THE WEALTH*\n\n"
-        "Invite your friends using your unique link. They will get a *3-Day FREE Trial* instantly!\n\n"
+        "💎 *ELITE REWARDS*\n\n"
+        "Invite colleagues to use the terminal. They receive a *3\\-Day Premium Trial* immediately upon joining\\.\n\n"
         f"🔗 *Invite Link:* `{invite_link}`"
     )
-    await update.message.reply_text(format_card("VIRAL GROWTH", content), parse_mode='Markdown', protect_content=True)
+    await update.message.reply_text(format_premium_card("PROPAGATION", content), parse_mode='MarkdownV2', protect_content=True)
 
 async def feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Requests feedback from user."""
     context.user_data['awaiting_feedback'] = True
-    await update.message.reply_text(format_card("USER FEEDBACK", "We value your input! Please type your feedback or suggestions below:"), parse_mode='Markdown', protect_content=True)
+    await update.message.reply_text(format_premium_card("EXECUTIVE FEEDBACK", "Share your experience or suggest optimizations for the Slancio Algos:"), parse_mode='MarkdownV2', protect_content=True)
 
 async def subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await update_heartbeat()
         plans = SubscriptionPlan.objects.all()
         if not plans.exists():
-            SubscriptionPlan.objects.get_or_create(name="7 Days Pro", price_in_paise=49900, duration_days=7)
-            SubscriptionPlan.objects.get_or_create(name="1 Month Pro", price_in_paise=149900, duration_days=30)
-            SubscriptionPlan.objects.get_or_create(name="2 Months Pro", price_in_paise=249900, duration_days=60)
+            SubscriptionPlan.objects.get_or_create(name="Pro 7 Days", price_in_paise=49900, duration_days=7)
+            SubscriptionPlan.objects.get_or_create(name="Pro 30 Days", price_in_paise=149900, duration_days=30)
             plans = SubscriptionPlan.objects.all()
         
-        keyboard = [[InlineKeyboardButton(f"{p.name} - ₹{p.price_in_paise/100}", callback_data=f"buy_{p.id}")] for p in plans]
-        await update.message.reply_text(format_card("MEMBERSHIP", "Select a plan to access premium signals:"), reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown', protect_content=True)
+        keyboard = [[InlineKeyboardButton(f"💎 {p.name} - ₹{p.price_in_paise/100}", callback_data=f"buy_{p.id}")] for p in plans]
+        await update.message.reply_text(format_premium_card("MEMBERSHIP TIERS", "Select an executive access plan:"), reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='MarkdownV2', protect_content=True)
     except Exception as e:
         await broadcast_error(context.bot, traceback.format_exc())
 
 async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [[InlineKeyboardButton(l, callback_data=f"sup_{k}")] for k, l in SupportTicket.QUERY_CHOICES]
-    await update.message.reply_text(format_card("SUPPORT HUB", "How can we assist you today?"), reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown', protect_content=True)
+    await update.message.reply_text(format_premium_card("TECH SUPPORT", "Our engineers are ready to assist. Select query type:"), reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='MarkdownV2', protect_content=True)
 
 async def admin_console(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
         log_security_breach(update.effective_user, "/admin")
-        return await update.message.reply_text("❌ Access Denied.")
+        return await update.message.reply_text("🛑 Access Denied.")
     
     kb = [
-        [InlineKeyboardButton("💰 Pending Pay", callback_data="adm_pending_pay")],
-        [InlineKeyboardButton("🎫 Open Tickets", callback_data="adm_tickets")],
-        [InlineKeyboardButton("🔋 Health Status", callback_data="adm_health")],
-        [InlineKeyboardButton("⏱️ Set Timeframe", callback_data="adm_timeframe")],
+        [InlineKeyboardButton("💰 Pending Verifications", callback_data="adm_pending_pay")],
+        [InlineKeyboardButton("🎫 Active Tickets", callback_data="adm_tickets")],
+        [InlineKeyboardButton("🔋 Core Health", callback_data="adm_health")],
+        [InlineKeyboardButton("⏱️ Global Timeframe", callback_data="adm_timeframe")],
     ]
-    await update.message.reply_text(format_card("ADMIN TERMINAL", "Mobile management active."), reply_markup=InlineKeyboardMarkup(kb), parse_mode='Markdown', protect_content=True)
+    await update.message.reply_text(format_premium_card("ADMIN TERMINAL", "System core management active."), reply_markup=InlineKeyboardMarkup(kb), parse_mode='MarkdownV2', protect_content=True)
 
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -151,12 +156,20 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         if data.startswith('buy_'):
             plan = SubscriptionPlan.objects.get(id=data.split('_')[1])
-            vpa = getattr(settings, 'UPI_MERCHANT_VPA', 'slancio@jio')
+            vpa = escape_md(getattr(settings, 'UPI_MERCHANT_VPA', 'myslancio@jio'))
             upi = f"upi://pay?pa={vpa}&pn=Slancio&am={plan.price_in_paise/100}&cu=INR"
             kb = InlineKeyboardMarkup([[InlineKeyboardButton("⚡ PAY via UPI", url=upi)]])
             
-            content = f"💠 *Plan:* {plan.name}\n💰 *Price:* ₹{plan.price_in_paise/100}\n🏦 *UPI ID:* `{vpa}`\n\n1️⃣ Click the button below to pay via any UPI app.\n2️⃣ **Take a screenshot** of the successful payment.\n3️⃣ **Upload the screenshot** here as proof.\n\n*Admin will verify and activate your signals within minutes!*"
-            await query.edit_message_text(format_card("CHECKOUT", content), reply_markup=kb, parse_mode='Markdown')
+            content = (
+                f"💠 *Plan:* `{escape_md(plan.name)}`\n"
+                f"💰 *Price:* `₹{plan.price_in_paise/100}`\n"
+                f"🏦 *UPI ID:* `{vpa}`\n\n"
+                "1️⃣ Click to pay via your preferred UPI app\\.\n"
+                "2️⃣ **Take a screenshot** of the confirmation\\.\n"
+                "3️⃣ **Upload image** here for verification\\.\n\n"
+                "_Activation is usually processed within 15 minutes\\._"
+            )
+            await query.edit_message_text(format_premium_card("CHECKOUT", content), reply_markup=kb, parse_mode='MarkdownV2')
             context.user_data['pending_plan_id'] = plan.id
 
         elif data == 'adm_health':
@@ -164,8 +177,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ms = HealthMonitor.objects.all()
             content = ""
             for m in ms:
-                content += f"{'🟢' if m.status == 'Healthy' else '🔴'} *{m.component}:* {m.status}\n🕒 last: {m.last_heartbeat.strftime('%H:%M:%S')}\n"
-            await query.edit_message_text(format_card("SYSTEM HEALTH", content), parse_mode='Markdown', reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔄 Refresh", callback_data="adm_health")]]))
+                status_icon = "🟢" if m.status == 'Healthy' else "🔴"
+                content += f"{status_icon} *{escape_md(m.component)}:* `{escape_md(m.status)}`\n🕝 _last:_ `{m.last_heartbeat.strftime('%H:%M:%S')}`\n\n"
+            await query.edit_message_text(format_premium_card("CORE STATUS", content), parse_mode='MarkdownV2', reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔄 Refresh", callback_data="adm_health")]]))
 
         elif data == 'adm_timeframe':
             if not is_admin(user_id): return
@@ -173,29 +187,29 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             tfs = ['1m', '5m', '15m', '30m', '1h']
             kb = [[InlineKeyboardButton(f"{'✅ ' if tf == current_tf else ''}{tf}", callback_data=f"set_tf_{tf}") for tf in tfs[i:i+3]] for i in range(0, len(tfs), 3)]
             kb.append([InlineKeyboardButton("🔙 Back", callback_data="adm_back")])
-            await query.edit_message_text(format_card("TIMEFRAME CONTROL", f"Active Interval: *{current_tf}*\n\nSelect a new timeframe for the strategy engine:"), reply_markup=InlineKeyboardMarkup(kb), parse_mode='Markdown')
+            await query.edit_message_text(format_premium_card("ENGINE CONTROL", f"Active Interval: `{current_tf}`\n\nConfigure global strategy scanning timeframe:"), reply_markup=InlineKeyboardMarkup(kb), parse_mode='MarkdownV2')
 
         elif data.startswith('set_tf_'):
             if not is_admin(user_id): return
             new_tf = data.split('_')[2]
             GlobalConfig.objects.update_or_create(key='active_timeframe', defaults={'value': new_tf})
-            await query.edit_message_text(format_card("TIMEFRAME UPDATED", f"✅ Strategy engine now scanning on *{new_tf}* timeframe."), parse_mode='Markdown', reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Back to Menu", callback_data="adm_back")]]))
+            await query.edit_message_text(format_premium_card("SYSTEM UPDATED", f"✅ Strategy engine updated to `{new_tf}` interval\\."), parse_mode='MarkdownV2', reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Back to Menu", callback_data="adm_back")]]))
 
         elif data == 'adm_back':
             await admin_console(update, context)
 
         elif data.startswith('sup_'):
             context.user_data['support_type'] = data.split('_')[1]
-            await query.edit_message_text(format_card("SUPPORT", "Please type your detailed query below:"))
+            await query.edit_message_text(format_premium_card("SUPPORT REQUEST", "Please provide detailed information regarding your query:"), parse_mode='MarkdownV2')
 
         elif data == 'adm_pending_pay':
             txs = Transaction.objects.filter(status='pending')
-            if not txs.exists(): return await query.edit_message_text("No pending pay.")
+            if not txs.exists(): return await query.edit_message_text(format_premium_card("QUEUE", "No pending verifications found\\."), parse_mode='MarkdownV2')
             for tx in txs:
-                kb = [[InlineKeyboardButton("✅ Approve", callback_data=f"approve_{tx.id}")]]
-                caption = f"👤 {tx.profile.telegram_id}\n📦 {tx.plan.name}\n💰 ₹{tx.amount/100}"
-                if tx.screenshot: await query.message.reply_photo(photo=tx.screenshot, caption=caption, reply_markup=InlineKeyboardMarkup(kb), protect_content=True)
-                else: await query.message.reply_text(text=caption, reply_markup=InlineKeyboardMarkup(kb), protect_content=True)
+                kb = [[InlineKeyboardButton("✅ Approve Access", callback_data=f"approve_{tx.id}")]]
+                caption = f"👤 `{tx.profile.telegram_id}`\n📦 `{escape_md(tx.plan.name)}`\n💰 `₹{tx.amount/100}`"
+                if tx.screenshot: await query.message.reply_photo(photo=tx.screenshot, caption=format_premium_card("VERIFICATION", caption), reply_markup=InlineKeyboardMarkup(kb), parse_mode='MarkdownV2', protect_content=True)
+                else: await query.message.reply_text(text=format_premium_card("VERIFICATION", caption), reply_markup=InlineKeyboardMarkup(kb), parse_mode='MarkdownV2', protect_content=True)
 
         elif data.startswith('approve_'):
             tx = Transaction.objects.get(id=data.split('_')[1])
@@ -204,8 +218,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             p.is_active_subscriber = True
             p.subscription_end_date = (p.subscription_end_date or timezone.now()) + timedelta(days=tx.plan.duration_days)
             p.save()
-            await query.edit_message_caption(caption=query.message.caption + "\n\n✅ APPROVED")
-            await context.bot.send_message(chat_id=p.telegram_id, text=format_card("ACTIVE", f"Your subscription is active until {p.subscription_end_date.strftime('%d-%b-%Y')}!"), parse_mode='Markdown', protect_content=True)
+            await query.edit_message_caption(caption=escape_md(query.message.caption) + "\n\n✅ *VERIFIED & APPROVED*", parse_mode='MarkdownV2')
+            await context.bot.send_message(chat_id=p.telegram_id, text=format_premium_card("ACCESS GRANTED", f"Your executive access is now active until `{p.subscription_end_date.strftime('%d-%b-%Y')}`\\!"), parse_mode='MarkdownV2', protect_content=True)
 
     except Exception as e: await broadcast_error(context.bot, traceback.format_exc())
 
@@ -219,20 +233,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             profile = Profile.objects.get(telegram_id=user_id)
             Feedback.objects.create(user=profile, message=update.message.text)
             del context.user_data['awaiting_feedback']
-            await update.message.reply_text(format_card("THANK YOU", "Your feedback has been recorded. We appreciate your support!"), parse_mode='Markdown', protect_content=True)
+            await update.message.reply_text(format_premium_card("THANK YOU", "Feedback recorded successfully\\. Transmission complete\\."), parse_mode='MarkdownV2', protect_content=True)
             return
 
         # Photo processing
         if update.message.photo:
             p_id = context.user_data.get('pending_plan_id')
-            if not p_id: return await update.message.reply_text("Process failed. Use /subscribe first.")
+            if not p_id: return await update.message.reply_text("🛑 session expired\\. Use /subscribe to begin\\.", parse_mode='MarkdownV2')
             profile = Profile.objects.get(telegram_id=user_id)
             plan = SubscriptionPlan.objects.get(id=p_id)
             tx = Transaction.objects.create(profile=profile, plan=plan, amount=plan.price_in_paise, status='pending')
             file = await context.bot.get_file(update.message.photo[-1].file_id)
             tx.screenshot.save(f"proof_{tx.id}.jpg", ContentFile(await file.download_as_bytearray()))
             tx.save()
-            await update.message.reply_text(format_card("STATUS", "Receipt received! Admin will verify soon."), parse_mode='Markdown', protect_content=True)
+            await update.message.reply_text(format_premium_card("PENDING", "Receipt uploaded\\. Admin verification in progress\\."), parse_mode='MarkdownV2', protect_content=True)
             del context.user_data['pending_plan_id']; return
 
         # Support type processing
@@ -240,18 +254,22 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if sup:
             profile = Profile.objects.get(telegram_id=user_id)
             SupportTicket.objects.create(user=profile, query_type=sup, message=update.message.text)
-            await update.message.reply_text(format_card("STATUS", "Query sent! Admin will notify you."), parse_mode='Markdown', protect_content=True)
+            await update.message.reply_text(format_premium_card("TRANSMITTED", "Signal request sent to technical department\\."), parse_mode='MarkdownV2', protect_content=True)
             del context.user_data['support_type']
         else:
-            await update.message.reply_text("🤖 Unknown command. Use /start to see the menu.")
+            await update.message.reply_text("🤖 Executive Terminal ready\\. Use `/start` for interaction\\.", parse_mode='MarkdownV2')
 
     except Exception as e: await broadcast_error(context.bot, traceback.format_exc())
 
 def run_bot():
     app = ApplicationBuilder().token(settings.TELEGRAM_BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start)); app.add_handler(CommandHandler("subscribe", subscribe))
-    app.add_handler(CommandHandler("pnl", pnl_report)); app.add_handler(CommandHandler("support", support))
-    app.add_handler(CommandHandler("invite", invite)); app.add_handler(CommandHandler("feedback", feedback))
-    app.add_handler(CommandHandler("admin", admin_console)); app.add_handler(CallbackQueryHandler(handle_callback))
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("subscribe", subscribe))
+    app.add_handler(CommandHandler("pnl", pnl_report))
+    app.add_handler(CommandHandler("support", support))
+    app.add_handler(CommandHandler("invite", invite))
+    app.add_handler(CommandHandler("feedback", feedback))
+    app.add_handler(CommandHandler("admin", admin_console))
+    app.add_handler(CallbackQueryHandler(handle_callback))
     app.add_handler(MessageHandler(filters.PHOTO | filters.TEXT & (~filters.COMMAND), handle_message))
-    print("Growth-Hardened Bot starting..."); app.run_polling()
+    print("Slancio Executive Bot starting..."); app.run_polling()

@@ -19,11 +19,11 @@ from alerts.models import TradeAlert
 from django.conf import settings
 from telegram import Bot
 import asyncio
+from core.ui import format_premium_card, escape_md, SEPARATOR, BLUE_DIAMOND
 
 # --- HELPERS ---
 def format_card(title, content):
-    border = "────────────────────────────────"
-    return f"🛡️ *{title}*\n{border}\n{content}\n{border}\n🌟 *Slancio Algo Trader*"
+    return format_premium_card(title, content)
 
 def get_current_timeframe():
     return GlobalConfig.get_value('active_timeframe', '15m')
@@ -44,18 +44,25 @@ async def notify_admin_error(error_msg):
 def generate_technical_chart(df, ticker, entry, targets, stoploss):
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(10, 6))
-    ax.plot(df.index, df['Close'], color='#00d2ff', linewidth=1.5, label='Price Action')
-    ax.axhline(y=float(entry), color='white', linestyle='--', alpha=0.6, label=f'Entry: {entry}')
-    ax.axhline(y=float(stoploss), color='#ff4b2b', linestyle='-', linewidth=2, label=f'SL: {stoploss}')
+    ax.plot(df.index, df['Close'], color='#00d2ff', linewidth=2, label='Price Action')
+    ax.fill_between(df.index, df['Close'].min(), df['Close'], color='#00d2ff', alpha=0.1) # Glow effect
+    
+    ax.axhline(y=float(entry), color='white', linestyle='--', alpha=0.8, label=f'Entry: {entry}')
+    ax.axhline(y=float(stoploss), color='#ff4b2b', linestyle='-', linewidth=2.5, label=f'SL: {stoploss}')
+    
     colors = ['#f9d423', '#e14eca', '#32ff7e']
     for idx, target in enumerate(targets):
-        ax.axhline(y=float(target), color=colors[idx], linestyle='--', alpha=0.8, label=f'T1: {target}' if idx==0 else f'T{idx+1}: {target}')
-    ax.set_title(f"🚀 {ticker} - Technical Analysis", fontsize=14, color='white', pad=20)
-    ax.legend(loc='upper left', fontsize=9, framealpha=0.3)
-    ax.grid(color='grey', linestyle='-', linewidth=0.1, alpha=0.5)
+        ax.axhline(y=float(target), color=colors[idx], linestyle='--', alpha=0.9, linewidth=1.5, label=f'T{idx+1}: {target}')
+    
+    ax.set_title(f"🚀 {ticker} - PREMIUM ANALYSIS", fontsize=14, color='white', fontweight='bold', pad=20)
+    ax.legend(loc='upper left', fontsize=9, framealpha=0.2, facecolor='black', edgecolor='white')
+    ax.grid(color='grey', linestyle='-', linewidth=0.1, alpha=0.3)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    
     plt.xticks(rotation=45)
     buf = io.BytesIO()
-    plt.savefig(buf, format='png', dpi=100)
+    plt.savefig(buf, format='png', dpi=120, bbox_inches='tight', transparent=True)
     buf.seek(0)
     plt.close()
     return buf
@@ -71,38 +78,30 @@ async def broadcast_executive_signal(alert):
     except: chart_buf = None
 
     card = (
-        f"┌──────────────────────────────┐\n"
-        f"  📊 *SLANCIO EXECUTIVE TERMINAL*\n"
-        f"└──────────────────────────────┘\n"
-        f"🔹 *INSTRUMENT:* {alert.instrument}\n"
-        f"🔹 *ACTION:* {alert.side.upper()}\n"
-        f"🔹 *TIMEFRAME:* {tf}\n"
-        f"────────────────────────────────\n"
-        f"💰 *ENTRY:* {alert.entry_price}\n"
-        f"🛑 *STOP LOSS:* {alert.stoploss}\n\n"
-        f"🎯 *TARGET 1:* {alert.target1}\n"
-        f"🎯 *TARGET 2:* {alert.target2}\n"
-        f"🎯 *TARGET 3:* {alert.target3}\n"
-        f"────────────────────────────────\n"
-        f"🛡️ *TRADE ACCURACY:* {alert.accuracy}\n"
-        f"🌟 *POWERED BY SLANCIO ALGO*"
+        f"📊 *TERMINAL:* `{escape_md(alert.instrument)}`\n"
+        f"⚡ *ACTION:* {escape_md(alert.side.upper())}\n"
+        f"⏱️ *INTERVAL:* `{escape_md(tf)}`\n"
+        f"{SEPARATOR}\n"
+        f"💰 *ENTRY:* `{alert.entry_price}`\n"
+        f"🛑 *STOP LOSS:* `{alert.stoploss}`\n\n"
+        f"🎯 *T1:* `{alert.target1}`\n"
+        f"🎯 *T2:* `{alert.target2}`\n"
+        f"🎯 *T3:* `{alert.target3}`\n"
+        f"{SEPARATOR}\n"
+        f"🛡️ *CONFIDENCE:* {escape_md(alert.accuracy)}"
     )
+    card_formatted = format_premium_card("ELITE SIGNAL BROADCAST", card)
     profiles_count = active_profiles.count()
-    print(f"DEBUG: Found {profiles_count} active profiles for broadcast.")
     
     for p in active_profiles:
         try:
-            print(f"DEBUG: Attempting broadcast to ID: {p.telegram_id}")
             if chart_buf:
                 chart_buf.seek(0)
-                await bot.send_photo(chat_id=p.telegram_id, photo=chart_buf, caption=card, parse_mode='Markdown', protect_content=True)
+                await bot.send_photo(chat_id=p.telegram_id, photo=chart_buf, caption=card_formatted, parse_mode='MarkdownV2', protect_content=True)
             else:
-                await bot.send_message(chat_id=p.telegram_id, text=card, parse_mode='Markdown', protect_content=True)
-            print(f"DEBUG: Successfully sent to {p.telegram_id}")
+                await bot.send_message(chat_id=p.telegram_id, text=card_formatted, parse_mode='MarkdownV2', protect_content=True)
         except Exception as e:
             print(f"ERROR: Failed to send to {p.telegram_id}: {str(e)}")
-            import traceback
-            traceback.print_exc()
 
 async def broadcast_hit_alert(alert, hit_type, current_price):
     bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
@@ -118,9 +117,9 @@ async def broadcast_hit_alert(alert, hit_type, current_price):
         f"💰 *HIT PRICE:* {current_price}\n"
         f"📊 *RESULT:* {'PROFIT' if hit_type != 'SL' else 'LOSS'}\n"
     )
-    card = format_card("SIGNAL UPDATE", content)
+    card = format_premium_card("SIGNAL UPDATE", content)
     for p in active_profiles:
-        try: await bot.send_message(chat_id=p.telegram_id, text=card, parse_mode='Markdown', protect_content=True)
+        try: await bot.send_message(chat_id=p.telegram_id, text=card, parse_mode='MarkdownV2', protect_content=True)
         except: pass
 
 # --- MONITORING LOOP ---
