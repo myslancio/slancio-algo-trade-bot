@@ -155,7 +155,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             upi = f"upi://pay?pa={vpa}&pn=Slancio&am={plan.price_in_paise/100}&cu=INR"
             kb = InlineKeyboardMarkup([[InlineKeyboardButton("⚡ PAY via UPI", url=upi)]])
             
-            content = f"💠 *Plan:* {plan.name}\n💰 *Price:* ₹{plan.price_in_paise/100}\n🏦 *VPA:* `{vpa}`\n\n📌 *Upload Screenshot Below*"
+            content = f"💠 *Plan:* {plan.name}\n💰 *Price:* ₹{plan.price_in_paise/100}\n🏦 *UPI ID:* `{vpa}`\n\n1️⃣ Click the button below to pay via any UPI app.\n2️⃣ **Take a screenshot** of the successful payment.\n3️⃣ **Upload the screenshot** here as proof.\n\n*Admin will verify and activate your signals within minutes!*"
             await query.edit_message_text(format_card("CHECKOUT", content), reply_markup=kb, parse_mode='Markdown')
             context.user_data['pending_plan_id'] = plan.id
 
@@ -227,7 +227,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             p_id = context.user_data.get('pending_plan_id')
             if not p_id: return await update.message.reply_text("Process failed. Use /subscribe first.")
             profile = Profile.objects.get(telegram_id=user_id)
-            tx = Transaction.objects.create(profile=profile, plan_id=p_id, amount=0, status='pending')
+            plan = SubscriptionPlan.objects.get(id=p_id)
+            tx = Transaction.objects.create(profile=profile, plan=plan, amount=plan.price_in_paise, status='pending')
             file = await context.bot.get_file(update.message.photo[-1].file_id)
             tx.screenshot.save(f"proof_{tx.id}.jpg", ContentFile(await file.download_as_bytearray()))
             tx.save()

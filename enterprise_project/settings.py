@@ -126,9 +126,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Enterprise Configuration — reads from environment variables on Railway
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '8524370554:AAF2ppgHmn9I_V9sVxthRL5Qna2pBN6P9RE')
-RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', 'YOUR_RAZORPAY_KEY_ID')
-RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', 'YOUR_RAZORPAY_KEY_SECRET')
-UPI_MERCHANT_VPA = os.environ.get('UPI_MERCHANT_VPA', 'slancio@jio')
+UPI_MERCHANT_VPA = os.environ.get('UPI_MERCHANT_VPA', 'myslancio@jio')
 STRATEGY_SECRET_TOKEN = os.environ.get('STRATEGY_SECRET_TOKEN', 'slancio_secure_token_2026')
 ADMIN_TELEGRAM_IDS = [int(x) for x in os.environ.get('ADMIN_TELEGRAM_IDS', '6616646849').split(',')]
 

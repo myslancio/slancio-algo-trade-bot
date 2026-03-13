@@ -9,4 +9,3 @@ matplotlib
 gunicorn
 whitenoise
 requests
-razorpay
