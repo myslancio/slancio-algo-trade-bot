@@ -273,7 +273,3 @@ def get_application():
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.add_handler(MessageHandler(filters.PHOTO | filters.TEXT & (~filters.COMMAND), handle_message))
     return app
-
-def run_bot():
-    app = get_application()
-    print("Slancio Executive Bot starting (Polling)..."); app.run_polling()
